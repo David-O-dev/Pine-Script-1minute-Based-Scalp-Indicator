@@ -1,0 +1,1 @@
+# Pine-Script-1minute-Based-Scalp-Indicator
