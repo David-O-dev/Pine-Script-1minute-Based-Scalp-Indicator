@@ -1,0 +1,251 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Gradation0
+
+//@version=6
+indicator(title = "1 Minute Based", overlay = true, precision = 5)
+
+
+//Candle
+//Get Candle
+CloseCandleMin1 = request.security(syminfo.tickerid, timeframe = "1", expression = close)
+CloseCandleMin3 = request.security(syminfo.tickerid, timeframe = "3", expression = close)
+CloseCandleH1 = request.security(syminfo.tickerid, timeframe = "60", expression = close)
+CloseCandleD1 = request.security(syminfo.tickerid, timeframe = "D", expression = close)
+OpenCandleMin1 = request.security(syminfo.tickerid, timeframe = "1", expression = open)
+OpenCandleMin3 = request.security(syminfo.tickerid, timeframe = "3", expression = open)
+OpenCandleH1 = request.security(syminfo.tickerid, timeframe = "60", expression = close)
+OpenCandleD1 = request.security(syminfo.tickerid, timeframe = "D", expression = close)
+
+//Conditions
+bool GreenCandle = false
+bool RedCandle = false
+
+if CloseCandleMin1 > OpenCandleMin1 and CloseCandleMin3 > OpenCandleMin3 
+    GreenCandle := true
+    RedCandle := false
+
+else if CloseCandleMin1 < OpenCandleMin1 and CloseCandleMin3 < OpenCandleMin3
+    GreenCandle := false
+    RedCandle := true
+
+else
+    GreenCandle := false
+    RedCandle := false
+
+
+
+
+
+//EMA
+//Inputs
+UseEMA1 = input.bool(defval = true, title = "Use EMA 1", group = "EMA")
+UseEMA2 = input.bool(defval = true, title = "Use EMA 2", group = "EMA")
+UseEMA3 = input.bool(defval = true, title = "Use EMA 3", group = "EMA")
+UseEMA4 = input.bool(defval = true, title = "Use EMA 4", group = "EMA")
+UseEMA5 = input.bool(defval = true, title = "Use EMA 5", group = "EMA")
+
+EMA1Length = input.int(defval = 3, title = "EMA 1 Length", group = "EMA Set 1")
+EMA2Length = input.int(defval = 5, title = "EMA 2 Length", group = "EMA Set 1")
+EMA3Length = input.int(defval = 7, title = "EMA 3 Length", group = "EMA Set 1")
+EMA4Length = input.int(defval = 9, title = "EMA 4 Length", group = "EMA Set 1")
+EMA5Length = input.int(defval = 200, title = "EMA 4 Length", group = "EMA Set 1")
+
+//Assign Values
+EMA1 = request.security(syminfo.tickerid, timeframe = "1", expression = ta.ema(close, EMA1Length))
+EMA2 = request.security(syminfo.tickerid, timeframe = "1", expression = ta.ema(close, EMA2Length))
+EMA3 = request.security(syminfo.tickerid, timeframe = "1", expression = ta.ema(close, EMA3Length))
+EMA4 = request.security(syminfo.tickerid, timeframe = "1", expression = ta.ema(close, EMA4Length))
+EMA5 = request.security(syminfo.tickerid, timeframe = "1", expression = ta.ema(close, EMA5Length))
+
+//Conditions
+bool EMALong = false
+bool EMAShort = false
+if EMA1[0] > EMA1[1] and EMA1[1] < EMA1[2]
+    if EMA1 > EMA2 and EMA2 > EMA3 and EMA3 > EMA4 and EMA4 > EMA5
+        if close > EMA5
+            EMALong := true
+            EMAShort := false
+
+
+else if EMA1[0] < EMA1[1] and EMA1[1] > EMA1[2]
+    if EMA1 < EMA2 and EMA2 < EMA3 and EMA3 < EMA4 and EMA4 < EMA5
+        if close < EMA5
+            EMALong := false
+            EMAShort := true
+
+
+else
+    EMALong := false
+    EMAShort := false
+
+
+
+
+
+//MACD
+//User input
+UseMACD = input.bool(defval = true, title = "Use MACD", group = "MACD", tooltip = "MACD 빠른선이 느린선을 통과 시 롱/숏 표시")
+MACDTimeFrame = input.string(defval = "1", title = "MACD Time Frame", group = "MACD")
+
+//Getting MACD Values
+[macdLine, signal, histogram] = request.security(syminfo.tickerid, timeframe = MACDTimeFrame, expression = ta.macd(close, 12, 26, 9))
+
+//Detect MACD Cross
+bool macdLong = false
+bool macdShort = false
+if UseMACD
+    if macdLine[0] > signal[0] and macdLine[0] > 0
+        macdLong := true
+        macdShort := false
+
+    else if macdLine[0] < signal[0] and macdLine[0] < 0
+        macdLong := false
+        macdShort := true
+
+    else
+        macdLong := false
+        macdShort := false
+
+
+
+
+
+//Hull Suite
+//Hull Suite Input
+UseHullSuite = input.bool(defval = false, title = "Use Hull Suite", group = "Hull Suite", tooltip = "캔들이 띠 위에서 마감했을 시 롱/숏 표시")
+PlotHullSuite = input.bool(defval = true, title = "Plot Hull Suite", group = "Hull Suite", tooltip = "Show Hull Suite")
+
+//Code For Hull Suite
+src = close
+string modeSwitch = "Hma"
+int length = 55
+float lengthMult = 1.0
+bool useHtf =false
+htf = input.timeframe("240", title="Higher timeframe", group = "Hull Suite")
+switchColor = true
+candleCol = false
+visualSwitch = input.bool(true, title="Show as a Band?", group = "Hull Suite")
+thicknessSwitch = input.int(1, title="Line Thickness", group = "Hull Suite")
+transpSwitch = input.int(40, title="Band Transparency", step=5, group = "Hull Suite")
+hullMovingAverage(_src, _length) => ta.wma(2 * ta.wma(_src, _length / 2) - ta.wma(_src, _length), math.round(math.sqrt(_length)))
+expHullMovingAverage(_src, _length) => ta.ema(2 * ta.ema(_src, _length / 2) - ta.ema(_src, _length), math.round(math.sqrt(_length)))
+triHullMovingAverage(_src, _length) => ta.wma(ta.wma(_src, _length / 3) * 3 - ta.wma(_src, _length / 2) - ta.wma(_src, _length), _length)
+modeSelection(mode, _src, _len) =>
+    if mode == "Hma"
+        hullMovingAverage(_src, _len)
+    else if mode == "Ehma"
+        expHullMovingAverage(_src, _len)
+    else if mode == "Thma"
+        triHullMovingAverage(_src, _len / 2)
+    else
+        na
+
+_hull = modeSelection(modeSwitch, src, int(length * lengthMult))
+HULL = useHtf ? request.security(syminfo.tickerid, htf, _hull) : _hull
+MHULL = HULL[0]
+SHULL = HULL[2]
+hullColor = switchColor ? (HULL > HULL[2] ? color.rgb(76, 175, 79, 31) : color.rgb(255, 82, 82, 31)) : color.orange
+
+//Plot Hull Suite
+Fi1 = plot(PlotHullSuite ? MHULL : na, title="MHULL", color=hullColor, linewidth=thicknessSwitch)
+Fi2 = plot(PlotHullSuite ? (visualSwitch ? SHULL : na) : na, title="SHULL", color=hullColor, linewidth=thicknessSwitch)
+alertcondition(ta.crossover(MHULL, SHULL), title="Hull trending up.", message="Hull trending up.")
+alertcondition(ta.crossover(SHULL, MHULL), title="Hull trending down.", message="Hull trending down.")
+fill(Fi1, Fi2, title="Band Filler", color=hullColor)
+barcolor(color = candleCol ? (switchColor ? hullColor : na) : na)
+
+
+//Hull Suite Detect
+bool AboveHull = false
+bool BelowHull = false
+if close[0] > MHULL and EMA1 > MHULL and EMA2 > MHULL and EMA3 > MHULL and EMA4 > MHULL
+    AboveHull := true
+    BelowHull := false
+
+else if close[0] < MHULL and EMA1 < MHULL and EMA2 < MHULL and EMA3 < MHULL and EMA4 < MHULL
+    AboveHull := false
+    BelowHull := true
+
+else
+    AboveHull := false
+    BelowHull := false
+
+
+
+//RSI
+//User Inputs
+UseRSI = input.bool(defval = true, title = "Use RSI", group = "RSI", tooltip = "RSI 55이상/45이하이고 정배열/역배열일 시 롱/숏 표시")
+RSITimeFrame = input.string(defval = "1", title = "RSI Time Frame", group = "RSI")
+
+//RSI Length
+rsi1Length = input.int(defval = 7, title = "RSI 1 Line", group = "RSI")
+rsi2Length = input.int(defval = 9, title = "RSI 2 Line", group = "RSI")
+rsi3Length = input.int(defval = 12, title = "RSI 3 Line", group = "RSI")
+
+//RSI Time Frame 1
+RSI1 = request.security(syminfo.tickerid, timeframe = RSITimeFrame, expression = ta.rsi(close, rsi1Length))
+RSI2 = request.security(syminfo.tickerid, timeframe = RSITimeFrame, expression = ta.rsi(close, rsi2Length))
+RSI3 = request.security(syminfo.tickerid, timeframe = RSITimeFrame, expression = ta.rsi(close, rsi3Length))
+
+//Below 45 or Above 55 and In Order (1-3)
+bool To3RSILong = false
+bool To3RSIShort = false
+if UseRSI
+    if RSI1 > 55 and RSI2 > 55 and RSI3 > 55
+        if RSI1 > RSI2 and RSI2 > RSI3
+            To3RSILong := true
+            To3RSIShort := false
+
+
+    else if RSI1 < 45 and RSI2 < 45 and RSI3 < 45
+        if RSI1 < RSI2 and RSI2 < RSI3
+            To3RSILong := false
+            To3RSIShort := true
+
+    else
+        To3RSILong := false
+        To3RSIShort := false
+
+
+
+
+//Ichimoku
+//User Inputs
+UseIchimoku = input.bool(defval = true, title = "Use Ichimoku", group = "Ichimoku", tooltip = "전환선이 위(롱)/아래(숏)으로 꺾였을 시 롱/숏 표시")
+
+//Calculations
+conversionPeriods = input.int(9, minval=1, title="Conversion Line Length", group = "Ichimoku")
+donchian(len) => math.avg(ta.lowest(len), ta.highest(len))
+conversionLine = donchian(conversionPeriods)
+
+//Conversion Line Facing Up or Down
+bool ConversionLineFacingUp = false
+bool ConversionLineFacingDown = false
+if UseIchimoku
+    if conversionLine[1] < conversionLine[0]
+        ConversionLineFacingUp := true
+        ConversionLineFacingDown := false
+
+    else if conversionLine[1] > conversionLine[0]
+        ConversionLineFacingUp := false
+        ConversionLineFacingDown := true
+
+    else
+        ConversionLineFacingUp := false
+        ConversionLineFacingDown := false
+
+
+
+
+
+//Display
+if EMALong and macdLong and GreenCandle and AboveHull and To3RSILong and timeframe.period == "1"
+    label.new(bar_index, high, "1 Min Long", color = color.rgb(250, 47, 240), size = size.small)
+
+else if EMAShort and macdShort and RedCandle and BelowHull and To3RSIShort and timeframe.period == "1"
+    label.new(bar_index, high, "1 Min Short", color = color.purple, size = size.small)
+
+
+
+
+//  and ConversionLineFacingUp and ConversionLineFacingDown
